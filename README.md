@@ -1,6 +1,6 @@
 # TimerOutputsComparisons
 
-[![Build Status](https://github.com/johnomotani/TimerOutputsComparisons.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/johnomotani/TimerOutputsComparisons.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/johnomotani/TimerOutputComparisons.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/johnomotani/TimerOutputComparisons.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 Provides some helper functions to save/load TimerOutput objects, and plot
 comparisons of them. This may be useful to compare performance with different
@@ -38,3 +38,18 @@ each timer can be plotted with `averages=true`. For example
 compare_timers(["foo$dt.jld" for dt ∈ delay_times]...; include=:time,
                legend=false, averages=true)
 ```
+
+Example output
+--------------
+
+Below is the output from comparing runs of a parallelised matrix solver code on
+different numbers of cores, using
+```julia
+julia> using TimerOutputComparisons, TimerOutputs
+
+julia> compare_timers("timing-1-1.jld", "timing-2-2.jld", "timing-4-4.jld", "timing-8-8.jld", "timing-16-16.jld"; use_data=:time, legend=false, averages=true, root="Static condensation ldiv! 16641")
+```
+where the legend is suppressed because there are too many entries - the curves
+can still be identified using the tooltip that appears when hovering the cursor
+over the curve.
+![Example of plot produced by TimerOutputComparisons.jl](doc/example-scaling-performance.png)
