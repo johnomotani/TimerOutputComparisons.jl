@@ -52,7 +52,7 @@ const possible_use_data = (:ncalls, :time, :allocs)
 
 """
     compare_timers(timers::Union{AbstractString,Tuple{<:AbstractString,<:AbstractString},Tuple{TimerOutput,<:AbstractString}}...;
-                   flatten::Bool=false, averages::Bool=false,
+                   flatten::Bool=false, averages::Bool=false, exclusive::Bool=false,
                    save_as::Union{AbstractString,Nothing}=nothing,
                    use_data=possible_use_data, legend::Bool=true, root=nothing)
 
@@ -71,6 +71,9 @@ If `flatten=true`, the TimerOutput objects are flattened with `TimerOutputs.flat
 
 If `averages=true`, then the time per call and allocs per call will be plotted instead of
 the total time and total allocs for each timer.
+
+If `exclusive=true`, then subtract the times from any nested timers from each timer. This
+should remove any double-counting of times.
 
 If a file-name is passed to `save_as` the plots are saved instead of being displayed
 interactively. For example, `save_as="foo.png"` would result in the plots being saved as
@@ -102,9 +105,13 @@ function compare_timers(timers::Union{AbstractString,<:Tuple{AbstractString,Abst
     return compare_timers(Tuple(get_timer(t) for t ∈ timers)...; kwargs...)
 end
 function compare_timers(timers::Tuple{TimerOutput,String}...;
-                        flatten::Bool=false, averages::Bool=false,
+                        flatten::Bool=false, averages::Bool=false, exclusive::Bool=false,
                         save_as::Union{AbstractString,Nothing}=nothing,
                         use_data=possible_use_data, legend::Bool=true, root=nothing)
+
+    if flatten && exclusive
+        error("Cannot use `flatten=true` and `exclusive=true` at the same time.")
+    end
 
     if isa(use_data, Symbol)
         use_data = (use_data,)
@@ -176,10 +183,11 @@ function compare_timers(timers::Tuple{TimerOutput,String}...;
 
     if root !== nothing
         plot_single_timer!(ax_ncalls, ax_time, ax_allocs, to_list, root[end:end], xticks,
-                           averages, true)
+                           averages, exclusive, true)
     end
     for name ∈ timer_names
-        plot_single_timer!(ax_ncalls, ax_time, ax_allocs, to_list, name, xticks, averages)
+        plot_single_timer!(ax_ncalls, ax_time, ax_allocs, to_list, name, xticks, averages,
+                           exclusive)
     end
 
     if legend
@@ -232,7 +240,7 @@ function get_single_timer(to::TimerOutput, name::Vector{String})
 end
 
 function plot_single_timer!(ax_ncalls, ax_time, ax_allocs, to_list, name::Vector{String},
-                            xticks, averages, is_root::Bool=false)
+                            xticks, averages, exclusive, is_root::Bool=false)
     if is_root
         this_timer_list = to_list
     else
@@ -254,9 +262,41 @@ function plot_single_timer!(ax_ncalls, ax_time, ax_allocs, to_list, name::Vector
                inspector_label=(self,i,p) -> "$(self.label[])\n$(xtick_values[round(Int64, p[1])]): ncalls=$(ncalls_values[round(Int64, p[1])])")
     end
 
+    function get_time(t)
+        if t === nothing
+            return NaN
+        end
+
+        tval = TimerOutputs.time(t)
+
+        if exclusive
+            for subtimer ∈ values(t.inner_timers)
+                tval -= TimerOutputs.time(subtimer)
+            end
+        end
+
+        return tval * 1.0e-6
+    end
+
+    function get_alloc(t)
+        if t === nothing
+            return NaN
+        end
+
+        aval = TimerOutputs.allocated(t)
+
+        if exclusive
+            for subtimer ∈ values(t.inner_timers)
+                aval -= TimerOutputs.allocated(subtimer)
+            end
+        end
+
+        return aval / 1024
+    end
+
     # Convert times from ns to ms.
     if ax_time !== nothing
-        time_values = [t === nothing ? NaN : TimerOutputs.time(t) * 1.0e-6 for t ∈ this_timer_list]
+        time_values = [get_time(t) for t ∈ this_timer_list]
         if averages
             time_values ./= ncalls_values
         end
@@ -266,7 +306,7 @@ function plot_single_timer!(ax_ncalls, ax_time, ax_allocs, to_list, name::Vector
     end
 
     if ax_allocs !== nothing
-        allocs_values = [t === nothing ? NaN : TimerOutputs.allocated(t) / 1024 for t ∈ this_timer_list]
+        allocs_values = [get_alloc(t) for t ∈ this_timer_list]
         if averages
             allocs_values ./= ncalls_values
         end

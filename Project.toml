@@ -1,6 +1,6 @@
 name = "TimerOutputComparisons"
 uuid = "59c811e7-adb4-4b01-a05e-50a2dd0b99a2"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["John Omotani <john.omotani@ukaea.uk> and contributors"]
 
 [deps]
