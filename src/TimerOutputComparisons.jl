@@ -54,7 +54,8 @@ const possible_use_data = (:ncalls, :time, :allocs)
     compare_timers(timers::Union{AbstractString,Tuple{<:AbstractString,<:AbstractString},Tuple{TimerOutput,<:AbstractString}}...;
                    flatten::Bool=false, averages::Bool=false, exclusive::Bool=false,
                    save_as::Union{AbstractString,Nothing}=nothing,
-                   use_data=possible_use_data, legend::Bool=true, root=nothing)
+                   use_data=possible_use_data, legend::Bool=true, root=nothing,
+                   datainspector_kwargs::Union{Dict,NamedTuple}=Dict())
 
 Make a plot comparing `timers`. For `t` in `timers`:
 * if `t` is an AbstractString, load a TimerOutput from the file named `t` using
@@ -87,6 +88,9 @@ To remove the legend, pass `legend=false`.
 If you only want to use_data some (possibly nested) sub-timer, pass its name as a String,
 Tuple or Vector to `root`. For example if the top-level TimerOutput is `to`, passing
 `root=("foo", "bar")` will use_data only the timers in `to["foo"]["bar"]`.
+
+`datainspector_kwargs` are passed as the keyword arguments to the `DataInspector()` call
+that creates the tooltips.
 """
 compare_timers
 
@@ -107,7 +111,8 @@ end
 function compare_timers(timers::Tuple{TimerOutput,String}...;
                         flatten::Bool=false, averages::Bool=false, exclusive::Bool=false,
                         save_as::Union{AbstractString,Nothing}=nothing,
-                        use_data=possible_use_data, legend::Bool=true, root=nothing)
+                        use_data=possible_use_data, legend::Bool=true, root=nothing,
+                        datainspector_kwargs::Union{Dict,NamedTuple}=Dict())
 
     if flatten && exclusive
         error("Cannot use `flatten=true` and `exclusive=true` at the same time.")
@@ -208,7 +213,7 @@ function compare_timers(timers::Tuple{TimerOutput,String}...;
         backend = Makie.current_backend()
         for fig in (fig_ncalls, fig_time, fig_allocs)
             if fig !== nothing
-                DataInspector(fig)
+                DataInspector(fig; datainspector_kwargs...)
                 display(backend.Screen(), fig)
             end
         end
